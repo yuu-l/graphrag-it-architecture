@@ -1,0 +1,133 @@
+# Workflow 名称，会显示在 GitHub Actions 页面中。
+name: Claude PR Review
+
+# 触发条件：
+# 1. 当有人创建、更新或重新打开目标为 dev/main 的 PR 时，自动运行代码审查。
+# 2. 当有人在目标为 dev/main 的 PR 评论中输入 @claude 时，允许手动重新触发审查。
+on:
+  pull_request:
+    # opened: 新建 PR
+    # synchronize: PR 源分支有新提交
+    # reopened: 重新打开已关闭的 PR
+    types: [opened, synchronize, reopened]
+    branches:
+      - dev
+      - main
+  issue_comment:
+    # GitHub 的 PR 评论也属于 issue_comment 事件。
+    # 后面的 job.if 会进一步判断评论是否来自 PR，以及是否包含 @claude。
+    types: [created]
+
+# 并发控制：
+# 同一个 PR 的旧审查任务如果还在运行，新任务会取消旧任务。
+# 这样可以避免连续 push 时多个 Claude 审查同时占用额度并重复评论。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+# GITHUB_TOKEN 权限：
+# contents: read 用于 checkout 和读取仓库内容。
+# pull-requests: write 用于读取 PR 信息、diff 等 PR 相关操作。
+# issues: write 用于向 PR 发布评论，因为 PR 评论在 GitHub API 中属于 issue comment。
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    # 使用 GitHub 托管的 Ubuntu runner。
+    runs-on: ubuntu-latest
+
+    # 环境变量：
+    # ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION 允许仍在 Node 20 上运行的内置 action
+    # （如 actions/checkout）在 Node 24 为默认的 runner 上正常工作。
+    # GitHub 计划于 2026-09-16 彻底移除 Node 20，届时需改为原生 Node 24 兼容版本。
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
+
+    # Job 运行条件：
+    # - pull_request 事件直接运行（base 分支限制已在 on.pull_request.branches 中过滤）。
+    # - issue_comment 事件只在”评论对象是 PR”、”评论包含 @claude”、且目标分支为 dev/main 时运行。
+    if: |
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        contains(github.event.comment.body, '@claude') &&
+        (
+          github.event.issue.base.ref == 'dev' ||
+          github.event.issue.base.ref == 'main'
+        )
+      )
+
+    steps:
+      # 拉取仓库代码。
+      # fetch-depth: 0 表示拉取完整历史，便于 Claude Code 或后续命令读取更多上下文。
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code Review
+        # 显式使用 bash，方便使用 set -euo pipefail、管道和条件判断。
+        shell: bash
+        env:
+          # Anthropic 或兼容代理网关地址，例如第三方中转服务。
+          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+          # Claude Code 调用模型需要的 API Key，必须在 GitHub Secrets 中配置。
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # 模型名称也放在 Secrets 中，便于以后不改 workflow 就能切换模型。
+          ANTHROPIC_MODEL: ${{ secrets.ANTHROPIC_MODEL }}
+          # gh CLI 会读取 GH_TOKEN，用它访问当前仓库的 PR 和评论接口。
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # -e: 任意命令失败时退出。
+          # -u: 使用未定义变量时报错。
+          # -o pipefail: 管道中任意一段失败，整个管道都视为失败。
+          set -euo pipefail
+
+          # 根据不同事件类型获取 PR 编号：
+          # pull_request 事件里编号在 github.event.pull_request.number。
+          # issue_comment 事件里 PR 评论对应的编号在 github.event.issue.number。
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            PR_NUM="${{ github.event.pull_request.number }}"
+          else
+            PR_NUM="${{ github.event.issue.number }}"
+          fi
+
+          # issue_comment 事件已在 job.if 中校验了目标分支，这里无需再判断。
+
+          # 临时文件用于保存 Claude Code 的审查结果。
+          # 使用 --body-file 可以避免长文本、换行和特殊字符在 shell 字符串中转义出错。
+          REPORT_FILE="$(mktemp)"
+
+          # 执行流程：
+          # 1. gh pr diff 获取当前 PR 的完整 diff。
+          # 2. 通过管道把 diff 传给 Claude Code。
+          # 3. Claude Code 按提示词生成审查报告。
+          # 4. 如果生成成功，就把报告评论到 PR。
+          # 5. 如果任一步失败，就评论一条失败提示，方便从 PR 页面看到 workflow 异常。
+          if gh pr diff "$PR_NUM" | npx --yes @anthropic-ai/claude-code -p \
+            "请审查以下 PR diff 中的代码变更，重点检查：
+            1. 安全漏洞（SQL 注入、XSS、敏感信息硬编码）
+            2. 未处理的错误情况和边界条件
+            3. 性能问题（N+1 查询、内存泄漏风险）
+
+            输出格式要求：
+            ## 审查报告
+            ### Critical（必须修复）
+            ### Warning（建议修复）
+            ### Suggestion（可选优化）
+
+            如果代码没有问题，请简要说明\"未发现问题\"。" \
+            --model "$ANTHROPIC_MODEL" \
+            --max-turns 10 \
+            --max-budget-usd 1 \
+            --tools "Read,Grep,Glob" \
+            --output-format text > "$REPORT_FILE"; then
+            gh pr comment "$PR_NUM" --body-file "$REPORT_FILE"
+          else
+            gh pr comment "$PR_NUM" --body "## 审查报告
+
+          Claude Code 审查未能生成结果，请检查 workflow 日志。"
+          fi

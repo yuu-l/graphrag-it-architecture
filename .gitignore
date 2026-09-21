@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# 环境与密钥
+.env
+.env.local
+
+# 数据产物（离线构建生成，可重建）
+data/index/
+data/docs/*.emb
+
+# IDE / 系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

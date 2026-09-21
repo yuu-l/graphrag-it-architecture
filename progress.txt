@@ -1,0 +1,68 @@
+# progress.txt — 项目进度跟踪（每次会话前必读）
+
+最后更新：2026-09-21
+
+## 项目
+
+基于 GraphRAG 的中小企业 IT 架构智能配置助手（求职 AI agent 开发职位的个人项目）。
+
+## 当前状态
+
+- **阶段**：规划 / 文档阶段 ✅ 完成；**代码实现 ⏭️ 尚未开始（Phase 0 未启动）**
+- **代码**：仓库应用代码为零（无 `app/`、无 `pyproject.toml`、无 `tests/`）
+- **基础设施**：docker 已有 Neo4j + MySQL；**待补 Elasticsearch + Redis**
+
+## 已完成 ✅
+
+1. 业务方向确定：中小企业 IT 架构选型（技术选型 + 架构方案设计，非"服务部署/云资源规格"）
+2. 技术选型确定：Neo4j + FAISS + Elasticsearch(BM25) + Redis + DeepSeek(可配置) + bge
+3. 交付深度：可运行端到端；落地位置：本仓库；前端：仅后端 + demo
+4. 生成 6 份规范文档到 `docs/`：PRD / APP_FLOW / TECH_STACK / FRONTEND_GUIDELINES / BACKEND_STRUCTURE / IMPLEMENTATION_PLAN
+5. TECH_STACK.md 的 Python 版本修正 3.14+ → 3.13+
+6. 重写 CLAUDE.md（本会话，合并原有内容 + 项目决策）
+
+## 进行中 🔄
+
+- （无）
+
+## 下一步 ⏭️
+
+**Phase 0 — 脚手架 + 基础设施**（详见 `docs/IMPLEMENTATION_PLAN.md` §2）：
+1. `pyproject.toml`（uv）+ 声明依赖
+2. `.env.example` + `app/core/config.py`（pydantic-settings）
+3. `app/core/logging.py`（loguru）+ `app/core/exceptions.py`
+4. `docker/docker-compose.yaml` 新增 Elasticsearch + Redis
+5. 空 `app/main.py` + `GET /api/v1/health`
+
+验收：config 从 `.env` 读取正确；健康检查返回 200 且各组件状态正确。
+
+## 待办清单（按 IMPLEMENTATION_PLAN.md，严格串行）
+
+- [ ] Phase 0 — 脚手架 + 基础设施
+- [ ] Phase 1 — 业务域建模 + 种子数据（schema、源文档、种子 KG 入库）
+- [ ] Phase 2 — 离线构建 pipeline（切块、FAISS、ES、图谱）
+- [ ] Phase 3 — 在线两阶段检索（实体链接、图谱扩展、混合召回融合）
+- [ ] Phase 4 — 意图识别 + 生成 + 规则校验
+- [ ] Phase 5 — 编排(LangGraph) + 会话(Redis) + API/CLI 集成
+- [ ] Phase 6 — 评估脚本 + CLAUDE.md/README 收尾
+
+## 关键决策速查
+
+| 决策 | 结论 |
+|------|------|
+| 业务方向 | 中小企业 IT 架构选型 |
+| 技术栈 | Neo4j + FAISS + ES + Redis + LLM + bge |
+| LLM | DeepSeek 默认，`base_url`/`api_key`/`model` 可配置不写死 |
+| Embedding | 本地 bge（`BAAI/bge-small-zh-v1.5` 默认，可配置）|
+| 向量库 | FAISS |
+| 前端 | 仅后端 + API/CLI demo（无前端工程）|
+| Python | 3.13+ |
+| 编排 | LangGraph `StateGraph` |
+| 交付 | 可运行端到端 |
+
+## 注意事项（易踩坑）
+
+- LLM 的 `base_url` / `api_key` / `model`、embedding 模型名、检索参数**任何地方不写死**，全走 `.env`
+- `docker/mysql/ecs.sql` 为电商售后种子数据，与本项目无关，**保留不动**
+- CLAUDE.md 与 docs/TECH_STACK.md 的 Python 版本须一致（均为 3.13+）
+- 每阶段通过测试才进入下一阶段

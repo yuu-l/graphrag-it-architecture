@@ -1,0 +1,7 @@
+
+
+volumes:
+  mysql-data:
+    driver: local
+  neo4j-data:
+    driver: local

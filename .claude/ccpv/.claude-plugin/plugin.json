@@ -1,0 +1,34 @@
+{
+  "name": "ccpv",
+  "version": "0.1.0",
+  "description": "Claude Code plugin for Python FastAPI, SQLAlchemy, MySQL, Docker, Vue, TypeScript, Aliyun deployment, review, security, and quality workflows without Superpowers-overlapping planning/TDD orchestration.",
+  "author": {
+    "name": "hynever"
+  },
+  "homepage": "https://github.com/local/ccpv",
+  "repository": "https://github.com/local/ccpv",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "ecc",
+    "fastapi",
+    "sqlalchemy",
+    "mysql",
+    "docker",
+    "vue",
+    "typescript",
+    "code-review",
+    "security"
+  ],
+  "mcpServers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_COPILOT_PAT}"
+      }
+    }
+  },
+  "skills": ["./skills/"],
+  "commands": ["./commands/"]
+}

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.js\" pre-bash"
+          }
+        ],
+        "description": "Block clearly destructive commands and warn on risky Git/Docker shortcuts.",
+        "id": "ccpv:pre-bash-safety"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.js\" post-edit"
+          }
+        ],
+        "description": "Remind about stack-specific verification after edits.",
+        "id": "ccpv:post-edit-verification-reminder"
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/hook.js\" stop"
+          }
+        ],
+        "description": "Remind the agent to include fresh verification evidence before completion claims.",
+        "id": "ccpv:stop-verification-reminder"
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PLUGIN_ROOT/hooks/send-notification.sh\" \"Claude Code 完成\" \"当前任务已处理完成\""
+          }
+        ]
+      }
+    ]
+  }
+}

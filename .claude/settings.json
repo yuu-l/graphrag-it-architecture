@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv *)",
+      "Bash(git *)",
+      "Bash(docker compose *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(bash .claude/**)",
+      "Bash(cd *)",
+      "Bash(curl -s http://localhost:*)",
+      "WebFetch",
+      "WebSearch",
+      "Read",
+      "Glob",
+      "Grep",
+      "Write",
+      "Edit"
+    ],
+    "deny": [
+      "Bash(rm -rf / *)",
+      "Bash(rm -rf ~ *)",
+      "Bash(rm -rf .git)",
+      "Bash(git push --force *)",
+      "Bash(git push * --force *)",
+      "Bash(curl * | bash)",
+      "Bash(curl * | sh)",
+      "Bash(wget * | bash)",
+      "Bash(sudo *)",
+      "Bash(shutdown *)",
+      "Bash(chmod 777 *)",
+      "Bash(ssh *)",
+      "Bash(* > /dev/*)"
+    ]
+  },
+  "enabledPlugins": {
+    "pyright-lsp@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "ccpv": true,
+    "superpowers@claude-plugins-official": true
+  }
+}
