@@ -1,0 +1,39 @@
+[project]
+name = "personal-service01"
+version = "0.1.0"
+description = "基于 GraphRAG 的中小企业 IT 架构智能配置助手"
+requires-python = ">=3.13"
+dependencies = [
+    # Web / 配置
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic",
+    "pydantic-settings",
+    # LLM / 编排 / 向量
+    "langchain",
+    "langchain-openai",
+    "langgraph",
+    "sentence-transformers",
+    "faiss-cpu",
+    # 存储客户端
+    "neo4j",
+    "elasticsearch",
+    "redis",
+    # 日志
+    "loguru",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "httpx",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
