@@ -28,6 +28,9 @@ _PLACEHOLDER_API_KEYS = {"", "sk-xxxx", "sk-xxx", "your-api-key"}
 # 生成产物目录：data/docs/（固定，供 Task 2 切块消费）。
 DOCS_DIR = Path(__file__).resolve().parent.parent / "data" / "docs"
 
+# 并发生成数：平衡总耗时与 API 限流（单篇约 2 分钟，顺序 23 篇约 46 分钟 → 并发 4 约 12 分钟）。
+CONCURRENCY = 4
+
 
 class ChatLLM(Protocol):
     """LLM 客户端最小契约（异步 ainvoke）。"""
@@ -135,18 +138,34 @@ def write_doc(spec: ComponentSpec, content: str, docs_dir: Path) -> Path:
     return path
 
 
+async def generate_all(
+    llm: ChatLLM,
+    specs: list[ComponentSpec],
+    docs_dir: Path,
+    concurrency: int = CONCURRENCY,
+) -> list[str]:
+    """并发（semaphore 限流）生成全部组件文档，返回失败组件名列表（空=全部成功）。"""
+
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async def _one(spec: ComponentSpec) -> str | None:
+        async with semaphore:
+            try:
+                content = await generate_component_doc(llm, spec)
+                path = write_doc(spec, content, docs_dir)
+                logger.info("已写入: {}", path)
+                return None
+            except Exception as exc:  # 单组件失败不影响其余
+                logger.error("生成失败: {} — {}", spec.name, exc)
+                return spec.name
+
+    results = await asyncio.gather(*(_one(spec) for spec in specs))
+    return [name for name in results if name is not None]
+
+
 async def main() -> None:
     llm = _build_llm()
-    failed: list[str] = []
-    for spec in COMPONENTS:
-        logger.info("生成文档: {}（{}）", spec.name, spec.category.value)
-        try:
-            content = await generate_component_doc(llm, spec)
-            path = write_doc(spec, content, DOCS_DIR)
-            logger.info("已写入: {}", path)
-        except Exception as exc:  # 单组件失败继续生成其余，避免一次网络抖动中断全部 23 篇
-            failed.append(spec.name)
-            logger.error("生成失败: {} — {}", spec.name, exc)
+    failed = await generate_all(llm, COMPONENTS, DOCS_DIR)
     if failed:
         logger.warning("完成，但 {} 个组件失败: {}", len(failed), failed)
     else:

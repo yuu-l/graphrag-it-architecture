@@ -70,3 +70,35 @@ def test_build_llm_fails_on_placeholder_key(monkeypatch) -> None:
     monkeypatch.setattr(gen_docs.settings, "llm_api_key", "sk-xxxx")
     with pytest.raises(RuntimeError):
         gen_docs._build_llm()
+
+
+async def test_generate_all_writes_all_docs(tmp_path) -> None:
+    class FakeLLM:
+        async def ainvoke(self, prompt: str):
+            return SimpleNamespace(content="## 特性\nok")
+
+    specs = [
+        gen_docs.ComponentSpec("MySQL", ComponentCategory.DATABASE, "u"),
+        gen_docs.ComponentSpec("Redis", ComponentCategory.CACHE, "u"),
+    ]
+    failed = await gen_docs.generate_all(FakeLLM(), specs, tmp_path, concurrency=2)
+    assert failed == []
+    assert (tmp_path / "MySQL.md").exists()
+    assert (tmp_path / "Redis.md").exists()
+
+
+async def test_generate_all_collects_failures(tmp_path) -> None:
+    class FlakyLLM:
+        async def ainvoke(self, prompt: str):
+            if "Redis" in prompt:
+                raise RuntimeError("boom")
+            return SimpleNamespace(content="ok")
+
+    specs = [
+        gen_docs.ComponentSpec("MySQL", ComponentCategory.DATABASE, "u"),
+        gen_docs.ComponentSpec("Redis", ComponentCategory.CACHE, "u"),
+    ]
+    failed = await gen_docs.generate_all(FlakyLLM(), specs, tmp_path, concurrency=2)
+    assert failed == ["Redis"]
+    assert (tmp_path / "MySQL.md").exists()
+    assert not (tmp_path / "Redis.md").exists()
