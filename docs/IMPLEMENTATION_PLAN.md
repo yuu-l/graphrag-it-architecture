@@ -16,6 +16,8 @@
 | Phase 5 | 编排 + 会话 + 集成 | LangGraph 组装、Redis 缓存、API/CLI | E2E 链路跑通 |
 | Phase 6 | 评估 + 文档收尾 | 指标脚本、CLAUDE.md 重写、README | 全量回归绿 |
 
+> 📌 详细版（task → step 粒度、含设计决策与 other.md 对齐）见 [`IMPLEMENTATION_PLAN_DETAILED.md`](./IMPLEMENTATION_PLAN_DETAILED.md)。
+
 依赖关系：Phase 0 → 1 → 2 → 3 → 4 → 5 → 6 严格串行（每个 Phase 依赖上一阶段产物）。
 
 ---
