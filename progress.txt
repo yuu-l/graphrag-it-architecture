@@ -1,6 +1,6 @@
 # progress.txt — 项目进度跟踪（每次会话前必读）
 
-最后更新：2026-09-22
+最后更新：2026-09-23
 
 ## 项目
 
@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-- **阶段**：**Phase 0 ✅ 完成**；Phase 1 ⏭️ 待开始
+- **阶段**：**Phase 0 ✅ + Task 1（业务域建模 + 文档生成）✅**；Task 2（离线构建 pipeline）⏭️ 待开始
 - **代码**：`app/` 骨架已建（core/config·logging·exceptions·health + main），`pyproject.toml` + `uv.lock` 已生成，`tests/` 5 个用例全绿
 - **基础设施**：docker 已有 Neo4j + MySQL + **Elasticsearch + Redis（Phase 0 新增）**
 
@@ -29,6 +29,11 @@
    - `app/main.py`（FastAPI）+ `GET /api/v1/health`（返回 200 + 各组件状态）
    - `docker/docker-compose.yaml` 新增 Elasticsearch(8.15.3) + Redis(7-alpine)
    - 验收通过：config 默认值/环境变量/.env 文件读取测试 ✅；健康检查 ok/degraded 测试 ✅（`uv run pytest` 5 passed）
+9. **Task 1 — 业务域建模 + 文档生成（Phase 1）**（详见 `docs/IMPLEMENTATION_PLAN_DETAILED.md`）：
+   - `app/graph/schema.py`：5 实体 Pydantic 模型（Component/BusinessScenario/Requirement/DeploymentTopology + ComponentCategory 枚举）+ RelationType 5 类（无 WEAKENS）+ 类别 10 类（含向量数据库），标识字段 min_length 校验
+   - `scripts/gen_docs.py`：LLM 生成组件文档脚本（占位 key 快速失败、并发生成 semaphore=4、单失败不中断）
+   - `data/docs/` 23 篇 Markdown 入库，10 类别全覆盖，每篇含「特性/适用场景/部署形态/局限」四要素
+   - 验收通过：`uv run pytest` 26 passed（schema 11 + gen_docs 8 + config/health 等）
 
 ## 进行中 🔄
 
@@ -36,23 +41,25 @@
 
 ## 下一步 ⏭️
 
-**Phase 1 — 业务域建模 + 种子数据**（详见 `docs/IMPLEMENTATION_PLAN.md` §3）：
-1. `app/graph/schema.py`：实体/关系 Pydantic 模型 + 关系类型常量（`BACKEND_STRUCTURE.md` §3/§4.1）
-2. 编写源文档：`data/docs/` 下 15~20 篇 Markdown（组件选型、依赖/互斥、场景适配、部署形态）
-3. 编写种子 KG：`data/seed/entities.yaml` + `data/seed/relations.yaml`
-4. `app/graph/client.py`（Neo4j async driver 封装）+ `app/graph/loader.py`（种子 → 消歧 → Cypher 写入，幂等）
+**Task 2 — 离线构建 pipeline**（详见 `docs/IMPLEMENTATION_PLAN_DETAILED.md` Task 2）：
+1. `app/retrieval/chunker.py`：语义切块（组件/规则最小单元，100~300 字）
+2. `app/llm/embed.py` + `app/retrieval/faiss_store.py`：向量索引（chunk/entity 双表，entity 表 embedding=标准名+别名+描述+标签）
+3. `app/retrieval/bm25_store.py`：ES BM25 索引 + 召回
+4. `app/graph/extractor.py`：LLM 实体/关系抽取（5 类关系）
+5. `app/graph/client.py` + `app/graph/loader.py`：Neo4j 别名消歧合并（稳定实体 ID）+ Cypher 幂等写入
+6. `app/rag/offline.py` + `scripts/build_offline.py`：编排一键执行
 
-验收：schema 校验通过；loader 重复导入不产生重复节点；Neo4j 实体/关系数量与种子一致。
+验收：切块不跨组件语义边界；FAISS/ES 可查询；loader 重复导入不产生重复节点。
 
-## 待办清单（按 IMPLEMENTATION_PLAN.md，严格串行）
+## 待办清单（按 docs/IMPLEMENTATION_PLAN_DETAILED.md，严格串行）
 
 - [x] Phase 0 — 脚手架 + 基础设施
-- [ ] Phase 1 — 业务域建模 + 种子数据（schema、源文档、种子 KG 入库）
-- [ ] Phase 2 — 离线构建 pipeline（切块、FAISS、ES、图谱）
-- [ ] Phase 3 — 在线两阶段检索（实体链接、图谱扩展、混合召回融合）
-- [ ] Phase 4 — 意图识别 + 生成 + 规则校验
-- [ ] Phase 5 — 编排(LangGraph) + 会话(Redis) + API/CLI 集成
-- [ ] Phase 6 — 评估脚本 + CLAUDE.md/README 收尾
+- [x] Task 1 — 业务域建模 + 文档生成（schema + 23 篇组件文档）
+- [ ] Task 2 — 离线构建 pipeline（切块、FAISS、ES、图谱抽取入库）
+- [ ] Task 3 — 在线两阶段检索（实体链接、图谱扩展、混合召回融合）
+- [ ] Task 4 — 意图识别 + 生成 + 规则校验
+- [ ] Task 5 — 编排(LangGraph) + 会话(Redis) + API/CLI 集成
+- [ ] Task 6 — 评估脚本 + CLAUDE.md/README 收尾
 
 ## 关键决策速查
 

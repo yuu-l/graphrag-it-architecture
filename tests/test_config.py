@@ -1,24 +1,26 @@
 """config 模块测试：.env 读取 + 默认值 + 环境变量覆盖。"""
 from __future__ import annotations
 
-from app.core.config import Settings, settings
+from app.core.config import Settings
 
 
 def test_defaults() -> None:
     """未提供 .env 时使用默认值（对应 .env.example）。"""
-    assert settings.llm_base_url == "https://api.deepseek.com/v1"
-    assert settings.llm_model == "deepseek-chat"
-    assert settings.embedding_model == "BAAI/bge-small-zh-v1.5"
-    assert settings.neo4j_uri == "bolt://localhost:7687"
-    assert settings.neo4j_user == "neo4j"
-    assert settings.es_url == "http://localhost:9200"
-    assert settings.es_index == "config_chunks"
-    assert settings.redis_url == "redis://localhost:6379/0"
-    assert settings.entity_top_k == 5
-    assert settings.retrieval_top_k == 10
-    assert settings.similarity_threshold == 0.5
-    assert settings.graph_hops == 2
-    assert settings.index_dir == "data/index"
+    # 用 _env_file=None 隔离 .env，测 config.py 内的真实默认值（而非环境覆盖后的单例）。
+    defaults = Settings(_env_file=None)
+    assert defaults.llm_base_url == "https://api.deepseek.com/v1"
+    assert defaults.llm_model == "deepseek-chat"
+    assert defaults.embedding_model == "BAAI/bge-small-zh-v1.5"
+    assert defaults.neo4j_uri == "bolt://localhost:7687"
+    assert defaults.neo4j_user == "neo4j"
+    assert defaults.es_url == "http://localhost:9200"
+    assert defaults.es_index == "config_chunks"
+    assert defaults.redis_url == "redis://localhost:6379/0"
+    assert defaults.entity_top_k == 5
+    assert defaults.retrieval_top_k == 10
+    assert defaults.similarity_threshold == 0.5
+    assert defaults.graph_hops == 2
+    assert defaults.index_dir == "data/index"
 
 
 def test_env_override(monkeypatch) -> None:
